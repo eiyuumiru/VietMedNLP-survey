@@ -104,7 +104,8 @@ def api_settings() -> tuple[str, str, str]:
     """Return normalized provider settings without exposing credentials."""
     load_project_env(Path(__file__).resolve().parents[1])
     return (
-        os.getenv("ICL_API_PROVIDER", "openai-compatible").strip().lower(),
+        os.getenv("ICL_API_PROVIDER", "").strip().lower()
+        or "openai-compatible",
         os.getenv("ICL_API_BASE_URL", "").strip().rstrip("/"),
         os.getenv("ICL_API_VERSION", "").strip(),
     )
