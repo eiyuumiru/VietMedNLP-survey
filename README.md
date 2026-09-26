@@ -44,3 +44,7 @@ pipeline. Generated results and local configuration are excluded by
 
 If you use this code, cite the accompanying article and use the metadata in
 [`CITATION.cff`](CITATION.cff).
+
+## License
+
+This project is licensed under the [MIT License](LICENSE).
