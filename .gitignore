@@ -13,7 +13,6 @@ __pycache__/
 .mypy_cache/
 .ruff_cache/
 .cache/
-.dataset-cache/
 .huggingface/
 *.log
 
@@ -27,6 +26,10 @@ __pycache__/
 **/adapters/
 **/checkpoint-*/
 **/dataset.txt
+**/experiment.json
+**/metrics.json
+**/run_config.json
+**/summary.json
 *.csv
 *.jsonl
 *.parquet

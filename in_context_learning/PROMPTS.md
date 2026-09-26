@@ -10,7 +10,7 @@ Không có zero-shot hoặc lượt one-shot riêng trong batch mặc định.
 |---|---:|---|
 | ViMQ intent | 8 | `cause`, `severity`, `treatment`, `method diagnosis` |
 | ViMedNLI | 6 | `entailment`, `contradiction`, `neutral` |
-| VMHQA | 8 | `A`, `B`, `C`, `D` |
+| VMHQA | 8 | Đoạn đáp án sao chép nguyên văn từ ngữ cảnh |
 | PhoNER COVID19 | 10 | `TYPE: span, TYPE: span` hoặc `None` |
 | ViMedNER | 5 | `TYPE: span, TYPE: span` hoặc `None` |
 | acrDrAid | 8 | Cụm từ mở rộng chữ viết tắt |

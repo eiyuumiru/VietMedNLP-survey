@@ -6,7 +6,7 @@ Outputs (under --results-root):
 
 Run after all per-dataset runs finish:
 
-    python -m app.aggregate --results-root /content/results
+    python -m app.aggregate --results-root /path/to/results
 """
 
 from __future__ import annotations

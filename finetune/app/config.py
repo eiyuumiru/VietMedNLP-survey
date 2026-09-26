@@ -7,7 +7,7 @@ task it is, (c) which metric is primary, and (d) sensible sequence / generation 
 
 from __future__ import annotations
 
-from dataclasses import dataclass, field
+from dataclasses import dataclass
 
 # --------------------------------------------------------------------------------------
 # Model defaults
@@ -34,7 +34,7 @@ PROMPT_STYLE = "nl"
 INSTRUCTION_COLUMN = "instruction_prompt_nl"
 TARGET_COLUMN = "output_prompt_nl"
 
-# The strict 10-column schema every task CSV must follow (see Drive README.txt).
+# The strict 10-column schema every task CSV must follow (see dataset documentation).
 EXPECTED_COLUMNS = [
     "input",
     "output",
@@ -214,11 +214,11 @@ class RunConfig:
     eval_during_train: bool = True
     max_val_samples: int | None = 1000  # cap dev (e.g. ViSP dev has ~391k rows)
 
-    # quantization / LoRA  (alpha=16, dropout=0 are Unsloth-optimized defaults)
+    # quantization / LoRA. These defaults match the CLI defaults.
     use_4bit: bool = True
     lora_r: int = 16
-    lora_alpha: int = 16
-    lora_dropout: float = 0.0
+    lora_alpha: int = 32
+    lora_dropout: float = 0.05
 
     # optimization
     epochs: float = 3.0
@@ -239,5 +239,3 @@ class RunConfig:
     bf16: bool = True
     use_bertscore: bool = False
     merge_and_save: bool = False        # merge LoRA into base and save full model
-
-    extra: dict = field(default_factory=dict)

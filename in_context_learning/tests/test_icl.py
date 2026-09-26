@@ -1,17 +1,17 @@
 """Offline protocol checks for the in-context learning implementation."""
 
-import json
+import csv
 import io
+import json
 import os
 import sys
 import tempfile
 import threading
 import unittest
-from contextlib import contextmanager, redirect_stdout
+from contextlib import redirect_stdout
 from pathlib import Path
 from types import SimpleNamespace
 from unittest.mock import MagicMock, patch
-from urllib3.response import HTTPResponse
 
 sys.path.insert(0, str(Path(__file__).resolve().parents[1] / "src"))
 
@@ -21,7 +21,32 @@ from icl_inference import select_examples
 from icl_tasks import TASKS, cot_compliance, evaluate, messages, parse_answer
 
 
+def write_csv(path, rows):
+    path.parent.mkdir(parents=True, exist_ok=True)
+    with path.open("w", encoding="utf-8", newline="") as stream:
+        writer = csv.DictWriter(stream, fieldnames=("input", "output"))
+        writer.writeheader()
+        writer.writerows(rows)
+
+
 class ProtocolTests(unittest.TestCase):
+    def test_single_model_environment_variable_is_accepted_by_cli(self):
+        with tempfile.TemporaryDirectory() as directory:
+            with patch.dict(os.environ, {"ICL_MODEL": "configured-model"}), patch(
+                "sys.argv",
+                [
+                    "icl",
+                    "--data-root",
+                    directory,
+                    "--dataset",
+                    "ViMedNLI_ViMedNLI",
+                    "--output",
+                    str(Path(directory) / "output"),
+                ],
+            ):
+                args = runner.parse_args()
+        self.assertEqual(args.model_id, "configured-model")
+
     def test_vmhqa_uses_its_extractable_gold_answer(self):
         kind, _, labels, _ = TASKS["VMHQA_Multiple_Choice_QA"]
         self.assertEqual(kind, "extractive")
@@ -110,7 +135,7 @@ class ProtocolTests(unittest.TestCase):
 
     def test_decoding_caps_all_four_models_without_changing_cot_budget(self):
         for model in run_all.MODELS:
-            options = runner.decoding_options(model)
+            options = runner.decoding_options(model_family=model)
             self.assertEqual(options["max_completion_tokens"], 8192)
             if model.startswith("gpt-5."):
                 self.assertEqual(options["reasoning_effort"], "none")
@@ -147,9 +172,12 @@ class ProtocolTests(unittest.TestCase):
                     else [{"input": "Test input", "output": "neutral"}]
                 )
 
-                @contextmanager
-                def remote(file_id):
-                    yield iter(rows)
+                data_root = Path(directory) / "data"
+                write_csv(
+                    data_root / "train" / f"{dataset}.csv",
+                    [{"input": f"Train {label}", "output": label} for label in TASKS[dataset][2]],
+                )
+                write_csv(data_root / "test" / f"{dataset}.csv", rows)
 
                 client = MagicMock()
                 client.chat.completions.create.return_value = SimpleNamespace(
@@ -171,7 +199,8 @@ class ProtocolTests(unittest.TestCase):
                     )
                 args = SimpleNamespace(
                     dataset=dataset,
-                    deployment="test-model",
+                    data_root=data_root,
+                    model_id="test-model",
                     shots=3,
                     output=Path(directory),
                     seed=42,
@@ -181,13 +210,9 @@ class ProtocolTests(unittest.TestCase):
                     resume=True,
                     prepare_only=False,
                 )
-                files = {
-                    f"{split}/{dataset}.csv": split
-                    for split in ("train", "test")
-                }
                 with patch.object(
                     runner, "make_client", return_value=(client, "test-model")
-                ), patch.object(runner, "remote_csv", remote), patch.object(
+                ), patch.object(
                     runner,
                     "MAX_PROMPT_TOKENS",
                     1 if case == "over_budget" else 32000,
@@ -196,14 +221,14 @@ class ProtocolTests(unittest.TestCase):
                 ):
                     if case not in {"truncated", "input_filtered"}:
                         with self.assertRaises(ValueError):
-                            runner.run_experiment(args, files, (examples, {}))
+                            runner.run_experiment(args, (examples, {}))
                         self.assertFalse(
                             (Path(directory) / "metrics.json").exists()
                         )
                         if case in {"empty", "over_budget"}:
                             client.chat.completions.create.assert_not_called()
                     else:
-                        runner.run_experiment(args, files, (examples, {}))
+                        runner.run_experiment(args, (examples, {}))
                         score = json.loads(
                             (Path(directory) / "metrics.json").read_text(encoding="utf-8")
                         )
@@ -235,7 +260,7 @@ class ProtocolTests(unittest.TestCase):
         self.assertEqual(peak, 4)
 
     def test_batch_covers_all_models_and_datasets(self):
-        def fake_run(args, files, prepared=None):
+        def fake_run(args, prepared=None):
             args.output.mkdir(parents=True, exist_ok=True)
             runner.write_json(
                 args.output / "experiment.json",
@@ -247,25 +272,27 @@ class ProtocolTests(unittest.TestCase):
             )
 
         with tempfile.TemporaryDirectory() as directory:
+            data_root = Path(directory) / "data"
+            for dataset in TASKS:
+                rows = [{"input": "example", "output": "neutral"}]
+                write_csv(data_root / "train" / f"{dataset}.csv", rows)
+                write_csv(data_root / "test" / f"{dataset}.csv", rows)
+            results_root = Path(directory) / "outputs"
             environment = {
-                "ICL_DATASET_FOLDER_ID": "https://example.invalid/test-datasets",
-                "ICL_DEPLOYMENT_GPT_4O": "test-gpt-4o",
-                "ICL_DEPLOYMENT_GPT_4_1": "test-gpt-4.1",
-                "ICL_DEPLOYMENT_GPT_5_2": "test-gpt-5.2",
-                "ICL_DEPLOYMENT_GPT_5_4": "test-gpt-5.4",
+                "ICL_DATA_ROOT": str(data_root),
+                "ICL_MODEL_GPT_4O": "test-gpt-4o",
+                "ICL_MODEL_GPT_4_1": "test-gpt-4.1",
+                "ICL_MODEL_GPT_5_2": "test-gpt-5.2",
+                "ICL_MODEL_GPT_5_4": "test-gpt-5.4",
             }
             with patch.object(
-                run_all, "RESULTS", Path(directory)
-            ), patch.object(
-                run_all, "ROOT", Path(directory)
-            ), patch.object(
-                run_all.gdown, "download_folder", return_value=[]
-            ), patch.object(
                 run_all, "run_experiment", side_effect=fake_run
             ) as run, patch.dict(os.environ, environment), redirect_stdout(
                 io.StringIO()
             ):
-                run_all.main()
+                run_all.main(
+                    ["--results-root", str(results_root), "--limit", "1"]
+                )
             inference_calls = [
                 call
                 for call in run.call_args_list
@@ -284,6 +311,7 @@ class ProtocolTests(unittest.TestCase):
                 },
             )
             self.assertEqual(len(inference_calls), 80)
+            self.assertTrue(all(call.args[0].limit == 1 for call in inference_calls))
             combinations = {
                 (
                     call.args[0].dataset,
@@ -306,7 +334,7 @@ class ProtocolTests(unittest.TestCase):
             )
             for dataset in TASKS:
                 selected = [
-                    call.args[2]
+                    call.args[1]
                     for call in inference_calls
                     if call.args[0].dataset == dataset
                 ]
@@ -318,7 +346,7 @@ class ProtocolTests(unittest.TestCase):
                 )
             )
             summary = json.loads(
-                (Path(directory) / "summary.json").read_text(encoding="utf-8")
+                (results_root / "summary.json").read_text(encoding="utf-8")
             )
             self.assertEqual(len(summary), 80)
 
@@ -344,15 +372,11 @@ class ProtocolTests(unittest.TestCase):
                 ("", False),
             )
 
-    def test_remote_csv_reads_multiline_cells_through_eof(self):
-        payload = 'input,output\n"first\nsecond",label\nlast,label\n'.encode()
-        raw = HTTPResponse(body=io.BytesIO(payload), preload_content=False)
-        response = MagicMock(raw=raw, headers={"Content-Type": "text/csv"})
-        with patch.object(runner.requests, "Session") as session:
-            session.return_value.__enter__.return_value.get.return_value = (
-                response
-            )
-            with runner.remote_csv("test") as rows:
+    def test_local_csv_reads_multiline_cells(self):
+        with tempfile.TemporaryDirectory() as directory:
+            path = Path(directory) / "train.csv"
+            path.write_bytes(b'input,output\n"first\nsecond",label\nlast,label\n')
+            with runner.local_csv(path) as rows:
                 result = list(rows)
         self.assertEqual(
             result,
@@ -362,22 +386,29 @@ class ProtocolTests(unittest.TestCase):
             ],
         )
 
-    def test_remote_csv_uses_usercontent_after_drive_403(self):
-        blocked = MagicMock(status_code=403)
-        blocked.raise_for_status.side_effect = runner.requests.HTTPError("403")
-        payload = b"input,output\nquestion,label\n"
-        raw = HTTPResponse(body=io.BytesIO(payload), preload_content=False)
-        downloaded = MagicMock(raw=raw, headers={"Content-Type": "text/csv"})
-        with patch.object(runner.requests, "Session") as session:
-            session.return_value.__enter__.return_value.get.side_effect = [
-                blocked,
-                downloaded,
-            ]
-            with runner.remote_csv("test") as rows:
-                self.assertEqual(list(rows), [{"input": "question", "output": "label"}])
-        self.assertEqual(
-            session.return_value.__enter__.return_value.get.call_count, 2
-        )
+    def test_dataset_files_reports_missing_split_path(self):
+        with tempfile.TemporaryDirectory() as directory:
+            dataset = "ViMedNLI_ViMedNLI"
+            write_csv(
+                Path(directory) / "train" / f"{dataset}.csv",
+                [{"input": "example", "output": "neutral"}],
+            )
+            with self.assertRaises(FileNotFoundError) as raised:
+                runner.dataset_files(directory, dataset)
+            self.assertIn("Missing test CSV", str(raised.exception))
+            self.assertIn(
+                str(Path(directory) / "test" / f"{dataset}.csv"),
+                str(raised.exception),
+            )
+
+    def test_local_csv_reports_path_for_invalid_schema(self):
+        with tempfile.TemporaryDirectory() as directory:
+            path = Path(directory) / "bad.csv"
+            path.write_text("prompt,label\nquestion,answer\n", encoding="utf-8")
+            with self.assertRaises(ValueError) as raised:
+                with runner.local_csv(path):
+                    pass
+            self.assertIn(str(path), str(raised.exception))
 
     def test_balance_reaches_late_minority_and_is_reproducible(self):
         rows = [
@@ -479,10 +510,6 @@ class ProtocolTests(unittest.TestCase):
             {"input": "Test two", "output": "neutral"},
         ]
 
-        @contextmanager
-        def remote(file_id):
-            yield iter(train if file_id == "train" else test)
-
         def response(answer):
             return SimpleNamespace(
                 usage=None,
@@ -497,27 +524,31 @@ class ProtocolTests(unittest.TestCase):
             )
 
         dataset = "ViMedNLI_ViMedNLI"
-        files = [
-            SimpleNamespace(path=f"{split}/{dataset}.csv", id=split)
-            for split in ("train", "test")
-        ]
         client = MagicMock()
         with tempfile.TemporaryDirectory() as directory:
+            data_root = Path(directory) / "data"
+            train_path = data_root / "train" / f"{dataset}.csv"
+            test_path = data_root / "test" / f"{dataset}.csv"
+            write_csv(train_path, train)
+            write_csv(test_path, test)
             args = [
                 "icl",
+                "--data-root",
+                str(data_root),
                 "--dataset",
                 dataset,
                 "--shots",
                 "3",
                 "--output",
                 directory,
+                "--model",
+                "test-model",
             ]
-            with patch.dict(os.environ, {"ICL_DATASET_FOLDER_ID": "https://example.invalid/test-datasets"}), patch.object(runner, "ROOT", Path(directory)), patch.object(
-                runner, "remote_csv", remote
-            ), patch.object(
+            with patch.object(
                 runner, "make_client", return_value=(client, "test-model")
-            ), patch.object(
-                runner.gdown, "download_folder", return_value=files
+            ), patch.dict(
+                os.environ,
+                {"ICL_API_BASE_URL": "https://provider.example/v1"},
             ), redirect_stdout(
                 io.StringIO()
             ):
@@ -542,6 +573,23 @@ class ProtocolTests(unittest.TestCase):
                 )
                 manifest_path = Path(directory) / "experiment.json"
                 manifest = json.loads(manifest_path.read_text(encoding="utf-8"))
+                self.assertEqual(
+                    manifest["config"]["train_sha256"], runner.file_hash(train_path)
+                )
+                self.assertEqual(
+                    manifest["config"]["test_sha256"], runner.file_hash(test_path)
+                )
+                config_text = json.dumps(manifest["config"])
+                for field in (
+                    "data_root",
+                    "model_id",
+                    "api_key",
+                    "api_base_url",
+                ):
+                    self.assertNotIn(field, manifest["config"])
+                self.assertNotIn(str(data_root), config_text)
+                self.assertNotIn("test-model", config_text)
+                self.assertNotIn("https://provider.example/v1", config_text)
                 modified = json.loads(manifest_path.read_text(encoding="utf-8"))
                 modified["examples"][0]["input"] = "tampered input"
                 runner.write_json(manifest_path, modified)
@@ -570,6 +618,14 @@ class ProtocolTests(unittest.TestCase):
                     ValueError, "configuration/code differs"
                 ):
                     runner.main()
+
+                original_train = train_path.read_bytes()
+                train_path.write_bytes(original_train + b"\n")
+                with patch("sys.argv", args + ["--resume"]), self.assertRaisesRegex(
+                    ValueError, "configuration/code differs"
+                ):
+                    runner.main()
+                train_path.write_bytes(original_train)
 
                 client.chat.completions.create.side_effect = [
                     response("neutral")

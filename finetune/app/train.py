@@ -13,8 +13,8 @@ import os
 
 from .config import DatasetSpec, RunConfig
 from .data_utils import build_text_dataset, maybe_subsample, read_split_df
-from .modeling import build_model, is_bf16
-from .utils import LOGGER, ensure_dir
+from .modeling import build_model, use_bf16
+from .utils import LOGGER, ensure_dir, package_versions
 
 # Llama-3.1 chat markers used to mask everything before the assistant turn.
 _INSTRUCTION_PART = "<|start_header_id|>user<|end_header_id|>\n\n"
@@ -56,7 +56,7 @@ def train_model(cfg: RunConfig, spec: DatasetSpec):
             LOGGER.warning("No '%s' split for %s; training without validation selection.",
                            cfg.val_split, spec.stem)
 
-    use_bf16 = is_bf16()
+    effective_bf16 = use_bf16(cfg)
     run_dir = ensure_dir(os.path.join(cfg.output_root, spec.stem))
 
     sft_params = inspect.signature(SFTConfig.__init__).parameters
@@ -71,7 +71,7 @@ def train_model(cfg: RunConfig, spec: DatasetSpec):
         packing=False,                       # required for train_on_responses_only
         group_by_length=True,                # batch similar lengths -> less padding, same quality
         per_device_train_batch_size=train_bs,
-        per_device_eval_batch_size=train_bs,
+        per_device_eval_batch_size=cfg.per_device_eval_batch_size,
         gradient_accumulation_steps=grad_accum,
         num_train_epochs=cfg.epochs,
         max_steps=cfg.max_steps,
@@ -81,8 +81,8 @@ def train_model(cfg: RunConfig, spec: DatasetSpec):
         lr_scheduler_type=cfg.lr_scheduler_type,
         logging_steps=cfg.logging_steps,
         optim="adamw_8bit",
-        bf16=use_bf16,
-        fp16=not use_bf16,
+        bf16=effective_bf16,
+        fp16=not effective_bf16,
         seed=cfg.seed,
         report_to="none",
     )
@@ -97,8 +97,26 @@ def train_model(cfg: RunConfig, spec: DatasetSpec):
         kw["greater_is_better"] = False
     else:
         kw["save_strategy"] = "no"
-    # Drop any kwarg the installed SFTConfig doesn't accept (TRL version drift).
-    kw = {k: v for k, v in kw.items() if k in sft_params}
+    # Fail when a version cannot express the recorded recipe; warn for optional knobs.
+    unsupported = set(kw) - set(sft_params)
+    required = {
+        "output_dir",
+        "per_device_train_batch_size",
+        "gradient_accumulation_steps",
+        "num_train_epochs",
+        "learning_rate",
+        "seed",
+    }
+    missing = required & unsupported
+    if missing or seq_key is None:
+        detail = ", ".join(sorted(missing)) or "a sequence-length setting"
+        raise RuntimeError(
+            "Installed TRL cannot express the recorded training recipe: "
+            f"missing {detail}. Install a compatible TRL/Unsloth environment."
+        )
+    if unsupported:
+        LOGGER.warning("Installed TRL ignores optional settings: %s", ", ".join(sorted(unsupported)))
+    kw = {key: value for key, value in kw.items() if key in sft_params}
 
     trainer = SFTTrainer(
         model=model,
@@ -115,10 +133,15 @@ def train_model(cfg: RunConfig, spec: DatasetSpec):
     )
 
     LOGGER.info("Starting training: %s (epochs=%.1f, max_steps=%d, bs=%d x ga=%d, bf16=%s).",
-                spec.stem, cfg.epochs, cfg.max_steps, train_bs, grad_accum, use_bf16)
+                spec.stem, cfg.epochs, cfg.max_steps, train_bs, grad_accum, effective_bf16)
     train_out = trainer.train()
 
     train_info = dict(train_out.metrics)
+    train_info["effective_precision"] = "bf16" if effective_bf16 else "fp16"
+    train_info["trainer_config"] = kw
+    train_info["package_versions"] = package_versions(
+        ("unsloth", "trl", "transformers", "torch", "peft", "datasets")
+    )
     train_info["num_train_examples"] = len(train_ds)
     if val_ds is not None:
         train_info["num_val_examples"] = len(val_ds)

@@ -12,10 +12,11 @@ The two experiment pipelines have separate dependencies and data access:
 - [`in_context_learning/`](in_context_learning/README.md) runs direct few-shot
   and few-shot explanation-and-answer prompting with four model families.
 
-Both pipelines expect you to obtain authorized access to the corresponding
-benchmark data. The repository contains no datasets, predictions, trained
-adapters, API credentials, or private Drive folder identifiers. Configure data
-access locally as described in each folder's README.
+Both pipelines expect you to obtain authorized benchmark data and place it in
+the local layout described by each README. The repository contains no
+datasets, predictions, trained adapters, API credentials, or private Drive
+folder identifiers. Configure data access locally as described in each
+folder's README.
 
 ## Quick orientation
 

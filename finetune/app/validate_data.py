@@ -9,11 +9,11 @@ For each of the 12 datasets x {train, dev, test} it checks:
   - for classification/NLI/MCQA: number of distinct labels + the most common ones,
   - a few sample (instruction, target) pairs so you can eyeball the format.
 
-Big files (e.g. ViSP ~881 MB) are streamed in chunks, so this is memory-safe on Colab.
+Big files (e.g. ViSP ~881 MB) are streamed in chunks to limit memory use.
 
-Usage (after mounting Drive):
+Usage:
     python -m app.validate_data \
-        --data-root "/content/drive/MyDrive/Dataset/New_Data (Modified NER task)/Instruct_Datasets"
+        --data-root /path/to/Instruct_Datasets
 
 Writes <data-root>/validation_report.json and prints a summary table. A FAIL means do
 not train on that file as-is; a WARN means inspect it (often a high empty/None rate).
@@ -170,7 +170,7 @@ def main(argv: list[str] | None = None) -> None:
     try:
         save_json({"records": records, "n_fail": n_fail, "n_warn": n_warn}, out)
         LOGGER.info("Wrote report to %s", out)
-    except Exception as exc:  # data-root may be read-only (mounted Drive)
+    except Exception as exc:  # The data root may be read-only.
         fallback = os.path.join(os.getcwd(), "validation_report.json")
         save_json({"records": records, "n_fail": n_fail, "n_warn": n_warn}, fallback)
         LOGGER.warning("Could not write to %s (%s); wrote %s instead.", out, exc, fallback)

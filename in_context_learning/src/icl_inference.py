@@ -4,7 +4,6 @@ import argparse
 import ast
 import csv
 import hashlib
-import io
 import json
 import os
 import random
@@ -15,11 +14,7 @@ from contextlib import contextmanager
 from pathlib import Path
 from importlib.metadata import version
 
-import gdown
-import requests
 import tiktoken
-from gdown.download import get_url_from_gdrive_confirmation
-from openai import AzureOpenAI
 
 from icl_tasks import (
     TASKS,
@@ -31,7 +26,17 @@ from icl_tasks import (
     normalize,
     parse_answer,
 )
-from icl_config import MODELS, dataset_folder_url, deployment_for_model, load_project_env
+from icl_config import (
+    MODEL_PROFILES,
+    MODELS,
+    SINGLE_RUN_METHODS,
+    api_settings,
+    dataset_files,
+    model_id_for_family,
+    resolve_data_root,
+    single_model_id,
+)
+from icl_api import make_client as _make_client
 
 ROOT = Path(__file__).resolve().parents[1]
 PROTOCOL = "icl-v3"
@@ -40,71 +45,20 @@ MAX_EXAMPLE_CHARS = 6000
 MAX_PROMPT_TOKENS = 32000
 MAX_COMPLETION_TOKENS = 8192
 TOKEN_ENCODING = "o200k_base"
-DATA_CACHE = ROOT / ".dataset-cache"
-
-
-def csv_reader(stream):
+def csv_reader(stream, source):
     reader = csv.DictReader(stream)
     if not {"input", "output"}.issubset(reader.fieldnames or []):
-        raise ValueError("CSV requires input and output columns")
+        raise ValueError(f"{source}: CSV requires input and output columns")
     return reader
 
 
 @contextmanager
-def remote_csv(file_id):
-    """Read a cached CSV or stream it from Drive."""
+def local_csv(path):
+    """Stream one authorized benchmark CSV from the local data directory."""
     csv.field_size_limit(10_000_000)
-    cached = DATA_CACHE / f"{file_id}.csv"
-    if cached.exists():
-        with cached.open(encoding="utf-8-sig", newline="") as stream:
-            yield csv_reader(stream)
-        return
-    with requests.Session() as session:
-        response = None
-        last_error = None
-        try:
-            for url in (
-                f"https://drive.google.com/uc?id={file_id}",
-                "https://drive.usercontent.google.com/download?"
-                f"id={file_id}&export=download&confirm=t",
-            ):
-                # Drive confirmation redirects, not API retries.
-                for _ in range(3):
-                    response = session.get(url, stream=True, timeout=120)
-                    try:
-                        response.raise_for_status()
-                    except requests.HTTPError as exc:
-                        last_error = exc
-                        if response.status_code != 403:
-                            raise
-                        response.close()
-                        response = None
-                        break
-                    if (
-                        "text/html"
-                        not in response.headers.get("Content-Type", "").lower()
-                    ):
-                        break
-                    url = get_url_from_gdrive_confirmation(response.text)
-                    response.close()
-                else:
-                    continue
-                if response is not None:
-                    break
-            else:
-                if last_error is not None:
-                    raise last_error
-                raise ValueError("Drive did not return a downloadable CSV")
-            response.raw.decode_content = True
-            # Keep TextIOWrapper readable through EOF; our context closes it below.
-            response.raw.auto_close = False
-            with io.TextIOWrapper(
-                response.raw, encoding="utf-8-sig", newline=""
-            ) as stream:
-                yield csv_reader(stream)
-        finally:
-            if response is not None:
-                response.close()
+    path = Path(path)
+    with path.open(encoding="utf-8-sig", newline="") as stream:
+        yield csv_reader(stream, path)
 
 
 def checked_row(row, index):
@@ -135,7 +89,12 @@ def source_hashes():
                 )
             )
         )
-        for name in ("icl_inference.py", "icl_tasks.py", "icl_config.py")
+        for name in (
+            "icl_inference.py",
+            "icl_tasks.py",
+            "icl_config.py",
+            "icl_api.py",
+        )
     }
 
 
@@ -146,17 +105,20 @@ def experiment_fingerprints(examples, task, method):
     }
 
 
-def decoding_options(deployment, model_family=None):
-    """Same output budget for direct/CoT; only their prompts differ."""
+def decoding_options(model_family=None, *, temperature=None, reasoning_effort=None):
+    """Build request settings from a profile, with per-run overrides."""
     options = {"max_completion_tokens": MAX_COMPLETION_TOKENS}
-    is_gpt5 = model_family in {"gpt-5.2", "gpt-5.4"} or deployment.startswith(
-        ("gpt-5.2", "gpt-5.4")
-    )
-    if is_gpt5:
-        options["reasoning_effort"] = "none"
-        # Temperature intentionally omitted for GPT-5 gateway compatibility.
+    profile = MODEL_PROFILES.get(model_family)
+    if profile is not None:
+        options.update(profile.decoding)
     else:
         options["temperature"] = 0
+    if temperature is not None:
+        options.pop("reasoning_effort", None)
+        options["temperature"] = temperature
+    if reasoning_effort is not None:
+        options.pop("temperature", None)
+        options["reasoning_effort"] = reasoning_effort
     return options
 
 
@@ -248,40 +210,9 @@ def select_examples(rows, task, shots, seed):
     }
 
 
-def make_client(deployment):
-    load_project_env(ROOT)
-    key = os.getenv("GENAIPLATFORM_FARM_SUBSCRIPTION_KEY") or os.getenv(
-        "LLM_FARM_API_KEY"
-    )
-    deployment = deployment or os.getenv("LLM_FARM_CHAT_DEPLOYMENT")
-    if not key:
-        raise ValueError(
-            "Set LLM_FARM_API_KEY (or GENAIPLATFORM_FARM_SUBSCRIPTION_KEY) "
-            "in in_context_learning/.env."
-        )
-    if not deployment:
-        raise ValueError(
-            "Set --deployment or LLM_FARM_CHAT_DEPLOYMENT in "
-            "in_context_learning/.env."
-        )
-    endpoint = os.getenv("LLM_FARM_ENDPOINT", "").strip()
-    api_version = os.getenv("LLM_FARM_CHAT_API_VERSION", "").strip()
-    if not endpoint or not api_version:
-        raise ValueError(
-            "Set LLM_FARM_ENDPOINT and LLM_FARM_CHAT_API_VERSION "
-            "in in_context_learning/.env."
-        )
-    return (
-        AzureOpenAI(
-            api_key=key,
-            azure_endpoint=endpoint.rstrip("/"),
-            azure_deployment=deployment,
-            api_version=api_version,
-            timeout=120,
-            max_retries=3,
-        ),
-        deployment,
-    )
+def make_client(model_id):
+    """Thin seam for tests; provider selection lives in the API adapter."""
+    return _make_client(model_id)
 
 
 def read_jsonl(path):
@@ -380,6 +311,7 @@ def write_json(path, value):
 def parse_args():
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument("--dataset", required=True, choices=TASKS)
+    parser.add_argument("--data-root", type=Path, help="Folder containing train/ and test/")
     parser.add_argument(
         "--output",
         required=True,
@@ -391,12 +323,17 @@ def parse_args():
     )
     parser.add_argument(
         "--method",
-        choices=("direct", "review", "reasoned", "cot"),
+        choices=SINGLE_RUN_METHODS,
         default="direct",
     )
     parser.add_argument("--seed", type=int, default=42)
-    parser.add_argument("--deployment")
+    parser.add_argument("--model", dest="model_id")
     parser.add_argument("--model-family", choices=MODELS)
+    decoding = parser.add_mutually_exclusive_group()
+    decoding.add_argument("--temperature", type=float)
+    decoding.add_argument(
+        "--reasoning-effort", choices=("none", "minimal", "low", "medium", "high")
+    )
     parser.add_argument(
         "--limit",
         type=int,
@@ -410,6 +347,12 @@ def parse_args():
         help="Save examples; do not call LLM",
     )
     args = parser.parse_args()
+    try:
+        args.data_root = resolve_data_root(args.data_root)
+        if not args.model_family and not args.model_id:
+            args.model_id = single_model_id()
+    except (NotADirectoryError, RuntimeError) as exc:
+        parser.error(str(exc))
     args.shots = TASKS[args.dataset][1] if args.shots is None else args.shots
     if (
         args.shots < 1
@@ -429,13 +372,7 @@ def parse_args():
 
 def main():
     args = parse_args()
-    files = {
-        f.path: f.id
-        for f in gdown.download_folder(
-            url=dataset_folder_url(ROOT), quiet=True, use_cookies=False, skip_download=True
-        )
-    }
-    run_experiment(args, files)
+    run_experiment(args)
 
 
 def ordered_results(function, items, workers):
@@ -468,34 +405,49 @@ def is_input_content_filter(exc):
     )
 
 
-def run_experiment(args, files, prepared=None):
-    deployment = getattr(args, "deployment", None)
+def run_experiment(args, prepared=None):
     model_family = getattr(args, "model_family", None)
-    if model_family and not deployment:
-        deployment = deployment_for_model(model_family)
-    client, deployment = make_client(deployment)
+    model_id = getattr(args, "model_id", None)
+    if model_family and not model_id:
+        model_id = model_id_for_family(model_family)
+    data_root = resolve_data_root(getattr(args, "data_root", None))
+    if getattr(args, "prepare_only", False):
+        return _run_experiment(
+            args,
+            data_root,
+            prepared,
+            None,
+            model_id or model_family or "custom-model",
+        )
+    client, model_id = make_client(model_id)
     with client:
-        return _run_experiment(args, files, prepared, client, deployment)
+        return _run_experiment(args, data_root, prepared, client, model_id)
 
 
-def _run_experiment(args, files, prepared, client, deployment):
+def _run_experiment(args, data_root, prepared, client, model_id):
     task = TASKS[args.dataset]
+    paths = dataset_files(data_root, args.dataset)
     model_family = getattr(args, "model_family", None)
-    decoding = decoding_options(deployment, model_family)
+    decoding = decoding_options(
+        model_family,
+        temperature=getattr(args, "temperature", None),
+        reasoning_effort=getattr(args, "reasoning_effort", None),
+    )
+    api_provider, api_base, api_version = api_settings()
     config = {
         "protocol": PROTOCOL,
         "dataset": args.dataset,
         "model_family": model_family,
-        "deployment_fingerprint": hashlib.sha256(
-            deployment.encode("utf-8")
+        "model_fingerprint": hashlib.sha256(
+            model_id.encode("utf-8")
         ).hexdigest(),
         "shots": args.shots,
         "method": args.method,
         "seed": args.seed,
         "limit": args.limit,
         "max_prompt_chars": args.max_prompt_chars,
-        "train_id": files[f"train/{args.dataset}.csv"],
-        "test_id": files[f"test/{args.dataset}.csv"],
+        "train_sha256": file_hash(paths["train"]),
+        "test_sha256": file_hash(paths["test"]),
         "task": json.loads(json.dumps(task)),
         "code": source_hashes(),
         "evaluator_version": EVALUATOR_VERSION,
@@ -504,8 +456,11 @@ def _run_experiment(args, files, prepared, client, deployment):
         "token_encoding": TOKEN_ENCODING,
         "sdk_version": version("openai"),
         "tokenizer_version": version("tiktoken"),
-        "endpoint": os.getenv("LLM_FARM_ENDPOINT", "").rstrip("/"),
-        "api_version": os.getenv("LLM_FARM_CHAT_API_VERSION", ""),
+        "api_provider": api_provider,
+        "api_base_fingerprint": hashlib.sha256(
+            api_base.encode("utf-8")
+        ).hexdigest(),
+        "api_version": api_version,
     }
     args.output.mkdir(parents=True, exist_ok=True)
     manifest_path = args.output / "experiment.json"
@@ -524,7 +479,7 @@ def _run_experiment(args, files, prepared, client, deployment):
         if predictions.exists():
             raise ValueError("Predictions exist without experiment metadata")
         if prepared is None:
-            with remote_csv(config["train_id"]) as rows:
+            with local_csv(paths["train"]) as rows:
                 examples, sampling = select_examples(
                     rows, task, args.shots, args.seed
                 )
@@ -623,7 +578,7 @@ def _run_experiment(args, files, prepared, client, deployment):
         response = None
         try:
             response = client.chat.completions.create(
-                model=deployment, messages=prompt, **decoding
+                model=model_id, messages=prompt, **decoding
             )
         except Exception as exc:
             if not is_input_content_filter(exc):
@@ -664,8 +619,8 @@ def _run_experiment(args, files, prepared, client, deployment):
         record["record_sha256"] = object_hash(record)
         return record
 
-    with predictions.open("a", encoding="utf-8") as output, remote_csv(
-        config["test_id"]
+    with predictions.open("a", encoding="utf-8") as output, local_csv(
+        paths["test"]
     ) as rows:
         for record in ordered_results(
             predict, requests_to_run(rows), getattr(args, "workers", 1)
@@ -673,7 +628,7 @@ def _run_experiment(args, files, prepared, client, deployment):
             output.write(json.dumps(record, ensure_ascii=False) + "\n")
             output.flush()
             print(
-                f"{deployment} | {args.dataset} | {args.method} | "
+                f"{model_family or 'custom-model'} | {args.dataset} | {args.method} | "
                 f"row={record['row']} valid={record['valid']}",
                 flush=True,
             )

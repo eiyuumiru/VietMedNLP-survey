@@ -1,13 +1,13 @@
 # Section 6.2 — in-context learning
 
-This folder contains the ICL-v3 runner, task prompts and local evaluator,
-results audit, and offline regression tests. It supports the ten Section 6.2
-datasets with four model families and two prompting conditions: `direct` and
-`cot` (a brief explanation plus a separate final answer). The same selected
-training demonstrations are used for every model and both conditions.
+This folder contains the ICL-v3 experiment runner, task prompts and evaluator,
+results audit, and offline regression tests. The batch covers ten datasets,
+four model profiles, and two prompting conditions: `direct` and `cot` (a brief
+explanation plus a separate final answer). Each dataset uses the same sampled
+training demonstrations across model profiles and prompting conditions.
 
-See [`PROMPTS.md`](PROMPTS.md) for the prompt templates, task shot counts,
-scoring rules, and protocol details.
+[`PROMPTS.md`](PROMPTS.md) documents the task instructions, shot counts,
+sampling and scoring protocol.
 
 ## Install
 
@@ -20,87 +20,130 @@ python -m venv .venv
 python -m pip install -r requirements.txt
 ```
 
-The first `tiktoken` use may download its vocabulary cache. The ICL tests do not
-need API credentials or data access.
+The first `tiktoken` use may download its tokenizer data. Offline tests need
+neither credentials nor benchmark data.
 
-## Configure credentials, deployments, and data
+## Prepare benchmark data
 
-Copy `.env.example` to `.env`, then fill it with values for an API-compatible
-chat endpoint and a Drive folder you are authorized to access. Keep `.env` local;
-Git ignores it.
+Obtain authorized copies of the benchmark CSV files and place them outside
+this repository using this layout:
 
-Required endpoint settings are `LLM_FARM_ENDPOINT`, `LLM_FARM_API_KEY`, and
-`LLM_FARM_CHAT_API_VERSION`. For a single experiment, set
-`LLM_FARM_CHAT_DEPLOYMENT` or pass `--deployment`. To run the complete batch,
-set each deployment mapping below to the gateway deployment that serves the
-corresponding model family:
+```text
+icl-data/
+├── train/
+│   ├── ViMedNLI_ViMedNLI.csv
+│   └── ...
+└── test/
+    ├── ViMedNLI_ViMedNLI.csv
+    └── ...
+```
 
-| Model family | Environment variable |
+Each CSV must have non-empty `input` and `output` columns. The runner streams
+the files from disk and records their SHA-256 fingerprints in each experiment
+manifest; it does not copy dataset contents into this repository. Pass the
+folder with `--data-root` or set `ICL_DATA_ROOT` in `.env`.
+
+## Configure a model API
+
+Copy `.env.example` to `.env`, then set values for an API you are authorized to
+use. Keep `.env` local; Git ignores it. The API adapter supports:
+
+- `openai-compatible` (default): set `ICL_API_KEY`; optionally set
+  `ICL_API_BASE_URL`. Leave it empty for the default OpenAI endpoint.
+- `azure-openai`: also set `ICL_API_BASE_URL` and `ICL_API_VERSION`.
+
+For a single run, set `ICL_MODEL` or pass `--model` with the model identifier
+(for Azure OpenAI, its deployment name). For the paper batch, set the four
+profile variables below. Each value is the identifier expected by the chosen
+provider; for Azure OpenAI, use the deployment name.
+
+| Paper model profile | Environment variable |
 |---|---|
-| GPT-4o | `ICL_DEPLOYMENT_GPT_4O` |
-| GPT-4.1 | `ICL_DEPLOYMENT_GPT_4_1` |
-| GPT-5.2 | `ICL_DEPLOYMENT_GPT_5_2` |
-| GPT-5.4 | `ICL_DEPLOYMENT_GPT_5_4` |
-
-`ICL_DATASET_FOLDER_ID` accepts a Drive folder ID or folder URL. The folder
-must contain the authorized `train/` and `test/` CSV files for the ten enabled
-tasks. The ICL code enumerates the files through Drive; it does not copy the
-dataset into this repository. The `.env.example` contains only sample values.
+| GPT-4o | `ICL_MODEL_GPT_4O` |
+| GPT-4.1 | `ICL_MODEL_GPT_4_1` |
+| GPT-5.2 | `ICL_MODEL_GPT_5_2` |
+| GPT-5.4 | `ICL_MODEL_GPT_5_4` |
 
 ## Run the Section 6.2 batch
 
 From `in_context_learning/`, run:
 
 ```bash
-python src/run_all.py
+python src/run_all.py --data-root /path/to/icl-data
 ```
 
-This schedules 4 model families × 10 datasets × 2 methods = 80 experiments.
-It uses seed 42, task-specific shot counts, and the full test splits. Within
-each model it allows four request workers and caps total concurrency at 16;
-`direct` and `cot` run sequentially. API charges may apply. Rerunning the
-command resumes verified incomplete runs and skips completed runs.
+This schedules four model profiles × ten datasets × two methods = 80 runs,
+using seed 42, task-specific shot counts, and each full test split. It allows
+four request workers per model profile and caps total concurrency at 16. The
+two prompting conditions run sequentially. API charges may apply. Rerunning
+the command resumes compatible checkpoints and skips completed runs.
 
-Results are written under
-`results/all_models_icl-v3/<dataset>/<model-family>/`; CoT outputs use a
-`cot/` subfolder. The batch summary is
-`results/all_models_icl-v3/summary.json`. Predictions, manifests, metrics, and
-logs are local experiment outputs and are excluded from Git.
+By default, outputs go to `results/all_models_icl-v3/` in this folder. Choose a
+different directory or a smoke-run subset with:
 
-To run one task/model family instead, for example:
+```bash
+python src/run_all.py \
+  --data-root /path/to/icl-data \
+  --results-root /path/to/experiment-output \
+  --limit 20
+```
+
+The batch summary is `<results-root>/summary.json`. Predictions, manifests,
+metrics, caches, and logs are experiment outputs and excluded from Git.
+
+To run one task with a paper model profile:
 
 ```bash
 python src/icl_inference.py \
+  --data-root /path/to/icl-data \
   --dataset ViMedNLI_ViMedNLI \
   --model-family gpt-4o \
   --method direct --shots 6 \
   --output results/single/vimednli-gpt-4o
 ```
 
-Use `--limit 20` for a small API smoke run and a fresh output folder. Omit
-`--limit` for the full test split. `--prepare-only` saves the selected shots
-without making a chat completion request, but still requires data access and a
-configured client in the current CLI.
+Or pass a provider-specific model identifier directly:
+
+```bash
+python src/icl_inference.py \
+  --data-root /path/to/icl-data \
+  --dataset ViMedNLI_ViMedNLI \
+  --model my-model-id \
+  --method direct --shots 6 \
+  --output results/single/vimednli-custom
+```
+
+Omit `--limit` for the full test split. `--prepare-only` selects and saves
+demonstrations without making an API request; it still needs the local data and
+a model identifier (or configured model profile).
 
 ## Audit and tests
 
 After a complete batch, create the Section 6.2 score table and ICL-v3 audit:
 
 ```bash
-python src/audit_icl_v3.py
+python src/audit_icl_v3.py \
+  --results-root /path/to/experiment-output \
+  --analysis-root /path/to/analysis-output
 ```
 
-The audit requires the 80 complete runs under `results/all_models_icl-v3/`. It
-checks manifests, summary metrics, and prediction counts. It writes the LaTeX
-table and audit bundle to `analysis/` inside this folder; it does not write to
-the manuscript directory. Inspect the generated table before deciding whether
-to copy it into the paper.
+The audit requires 80 complete runs under the selected results folder. The
+defaults match the batch runner's default output and this folder's `analysis/`
+directory. It checks manifests, summary metrics, and prediction counts, then
+writes the LaTeX table and audit bundle to the analysis folder; it does not
+write to the manuscript directory. Review the generated table before copying
+it into the paper.
 
-Run the offline tests from `in_context_learning/`:
+Run offline tests from `in_context_learning/`:
 
 ```bash
 python -B -m unittest discover -s tests -p "test_*.py"
 ```
 
-The tests use mocked clients and temporary fixtures; they do not call the API,
-download datasets, or create repository predictions.
+Tests use mocked clients and temporary CSV fixtures. They do not call a model
+API, download datasets, or create repository predictions.
+
+## Code availability
+
+The source code and experiment instructions for Section 6.2 will be available
+at `<repository URL>` after the repository is published.

@@ -4,8 +4,8 @@ Typical Colab usage (run once per dataset):
 
     python -m app.run \
         --dataset ViMedNLI_ViMedNLI \
-        --data-root "/content/drive/MyDrive/HEALTHDOMAIN/New_Data (Modified NER task)/Instruct_Datasets" \
-        --output-root /content/results
+        --data-root /path/to/Instruct_Datasets \
+        --output-root /path/to/results
 
 Outputs under <output-root>/<dataset>/:
     metrics.json       - all metrics + paper SOTA reference + train info

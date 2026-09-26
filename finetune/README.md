@@ -15,23 +15,29 @@ and install this folder's dependencies:
 python -m pip install -r requirements.txt
 ```
 
-The data is not included. Obtain authorized access to the HEALTHDOMAIN
-`Instruct_Datasets` folder and make its path available to the runtime. It must
+Unsloth selects a CUDA-compatible training stack, so its version is not pinned
+in this portable install file. Every completed run records the installed
+Unsloth, TRL, Transformers, PyTorch, PEFT, and Datasets versions in
+`metrics.json`.
+
+The data is not included. Obtain authorized copies of the HEALTHDOMAIN
+`Instruct_Datasets` files and place them in a local directory. It must
 contain `train/`, `dev/`, and `test/` directories with the CSV files named by
 `python -m app.run --list-datasets`. The runner validates the expected columns
 and reads the `instruction_prompt_nl` / `output_prompt_nl` fields.
+[`DATA_FORMAT.md`](DATA_FORMAT.md) gives the exact folder layout and CSV schema.
 
-For example, in Colab mount the Drive folder and set `DATA_ROOT` to the
-authorized `Instruct_Datasets` directory:
+Set `DATA_ROOT` to the local `Instruct_Datasets` directory:
 
 ```bash
-DATA_ROOT="/content/drive/MyDrive/Dataset/Instruct_Datasets"
+DATA_ROOT="/path/to/Instruct_Datasets"
 python -m app.validate_data --data-root "$DATA_ROOT"
 ```
 
 Validation can report known unusable data such as `ViMQ_NER`; the ten datasets
 reported in Section 6.1 do not include `ViMQ_NER` or `ViSP_Sentence_Paraphrases`.
-The CSV files remain outside this repository.
+The CSV files remain outside this repository. The original experiments used a
+Colab A100 runtime; other compatible GPU environments can run the same recipe.
 
 ## Reproduce a reported run
 
@@ -62,6 +68,8 @@ The split roles are `train` for fitting, `dev` for best-checkpoint selection by
 validation loss, and `test` for final evaluation. The runner writes each run to
 `results/<dataset>/` with `metrics.json`, `predictions.jsonl`,
 `run_config.json`, and the adapter. These generated files are ignored by Git.
+`run_config.json` records requested values; `metrics.json` records the effective
+precision, accepted TRL settings, and package versions from the actual runtime.
 
 ## Post-process and summarize
 

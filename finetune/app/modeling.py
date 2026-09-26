@@ -29,6 +29,11 @@ def is_bf16() -> bool:
     return bool(is_bfloat16_supported())
 
 
+def use_bf16(cfg: RunConfig) -> bool:
+    """Respect the requested precision while falling back on unsupported hardware."""
+    return cfg.bf16 and is_bf16()
+
+
 def _apply_chat_template(tokenizer):
     from unsloth.chat_templates import get_chat_template
 
@@ -44,7 +49,7 @@ def build_model(cfg: RunConfig, max_seq_length: int):
     model, tokenizer = FastLanguageModel.from_pretrained(
         model_name=cfg.model_name,
         max_seq_length=max_seq_length,
-        dtype=None,                 # auto: bf16 on Ampere+/Ada, else fp16
+        dtype=_torch.bfloat16 if use_bf16(cfg) else _torch.float16,
         load_in_4bit=cfg.use_4bit,  # False -> bf16 LoRA (A100)
     )
     tokenizer = _apply_chat_template(tokenizer)
@@ -72,7 +77,7 @@ def load_for_inference(cfg: RunConfig, spec: DatasetSpec, adapter_dir: str | Non
     model, tokenizer = FastLanguageModel.from_pretrained(
         model_name=adapter_dir or cfg.model_name,   # Unsloth loads a saved LoRA dir directly
         max_seq_length=max_seq_length,
-        dtype=None,
+        dtype=_torch.bfloat16 if use_bf16(cfg) else _torch.float16,
         load_in_4bit=cfg.use_4bit,
     )
     tokenizer = _apply_chat_template(tokenizer)

@@ -1,12 +1,12 @@
 """Audit the official ICL-v3 runs and generate manuscript-ready artifacts.
 
 The authoritative run universe is ``summary.json`` (80 runs), not every
-directory below results: ``*-strict`` folders are checkpoint sources and must
-not be counted as additional experiments.
+directory below the results folder.
 """
 
 from __future__ import annotations
 
+import argparse
 import csv
 import hashlib
 import json
@@ -14,28 +14,14 @@ from collections import Counter, defaultdict
 from pathlib import Path
 from typing import Any, Iterable
 
-from icl_config import MODELS, MODEL_LABELS
+from icl_config import BATCH_METHODS as METHODS, MODELS, MODEL_LABELS
 from icl_tasks import TASKS, entities, normalize, overlap_f1, qa_tokens, rouge_l
 
 
 ROOT = Path(__file__).resolve().parents[1]
 RESULTS = ROOT / "results" / "all_models_icl-v3"
 ANALYSIS = ROOT / "analysis"
-LATEX_TABLE = ANALYSIS / "table 10.tex"
-METHODS = ("direct", "cot")
-
-DATASETS = (
-    "ViMQ_intent_classification",
-    "ViMedNLI_ViMedNLI",
-    "VMHQA_Multiple_Choice_QA",
-    "PhoNER_COVID19_NER",
-    "ViMedNER_NER",
-    "vihealthbert_acrDrAid",
-    "ViNewsQA_Extractive_QA",
-    "UIT-ViCoV19QA_QA",
-    "ViMedAQA_Abstract_QA",
-    "vihealthbert_Summarization",
-)
+DATASETS = tuple(TASKS)
 
 DISPLAY = {
     "ViMQ_intent_classification": ("ViMQ", "Intent\\\\ Macro/Micro F1", ("macro_f1", "micro_f1")),
@@ -77,8 +63,8 @@ def read_jsonl(path: Path) -> Iterable[dict[str, Any]]:
                 yield json.loads(line)
 
 
-def experiment_directory(run: dict[str, Any]) -> Path:
-    directory = RESULTS / run["dataset"] / run["model"]
+def experiment_directory(run: dict[str, Any], results_root: Path = RESULTS) -> Path:
+    directory = results_root / run["dataset"] / run["model"]
     return directory / "cot" if run["method"] == "cot" else directory
 
 
@@ -139,7 +125,7 @@ def classify_record(record: dict[str, Any], task: tuple[Any, ...]) -> Counter:
     return counts
 
 
-def serializable_case(record: dict[str, Any], source: Path, dataset: str, model: str, method: str, category: str) -> dict[str, Any]:
+def serializable_case(record: dict[str, Any], source: Path, source_root: Path, dataset: str, model: str, method: str, category: str) -> dict[str, Any]:
     return {
         "category": category,
         "dataset": dataset,
@@ -152,7 +138,7 @@ def serializable_case(record: dict[str, Any], source: Path, dataset: str, model:
         "prediction": record["prediction"],
         "valid": record["valid"],
         "raw_prediction": record["raw_prediction"],
-        "source": str(source.relative_to(ROOT)),
+        "source": str(source.relative_to(source_root)),
     }
 
 
@@ -218,8 +204,15 @@ def build_table(all_row_metrics: dict[str, Any]) -> str:
     return "\n".join(lines)
 
 
-def main() -> None:
-    summary = read_json(RESULTS / "summary.json")
+def main(argv=None) -> None:
+    parser = argparse.ArgumentParser(description=__doc__)
+    parser.add_argument("--results-root", type=Path, default=RESULTS)
+    parser.add_argument("--analysis-root", type=Path, default=ANALYSIS)
+    args = parser.parse_args(argv)
+    results_root = args.results_root.expanduser()
+    analysis_root = args.analysis_root.expanduser()
+
+    summary = read_json(results_root / "summary.json")
     if len(summary) != 80:
         raise ValueError(f"Expected 80 official runs, found {len(summary)}")
     expected = {(dataset, model, method) for dataset in DATASETS for model in MODELS for method in METHODS}
@@ -227,12 +220,12 @@ def main() -> None:
     if actual != expected:
         raise ValueError("summary.json does not contain exactly the expected 10 x 4 x 2 run universe")
 
-    ANALYSIS.mkdir(parents=True, exist_ok=True)
+    analysis_root.mkdir(parents=True, exist_ok=True)
     all_row_metrics: dict[str, dict[str, dict[str, Any]]] = defaultdict(lambda: defaultdict(dict))
     for run in summary:
         all_row_metrics[run["dataset"]][run["method"]][run["model"]] = run["metrics"]
-    LATEX_TABLE.write_text(build_table(all_row_metrics), encoding="utf-8")
-    shutil.copy2(LATEX_TABLE, ANALYSIS / "table 10.tex")
+    latex_table = analysis_root / "table 10.tex"
+    latex_table.write_text(build_table(all_row_metrics), encoding="utf-8")
 
     aggregate: dict[str, Counter] = defaultdict(Counter)
     valid_metrics: dict[str, dict[str, dict[str, Any]]] = defaultdict(lambda: defaultdict(dict))
@@ -241,7 +234,7 @@ def main() -> None:
     dataset_candidates: dict[str, dict[str, Any]] = defaultdict(dict)
 
     for run in sorted(summary, key=lambda item: (DATASETS.index(item["dataset"]), METHODS.index(item["method"]), MODELS.index(item["model"]))):
-        directory = experiment_directory(run)
+        directory = experiment_directory(run, results_root)
         metrics_path, experiment_path, predictions_path = (directory / "metrics.json", directory / "experiment.json", directory / "predictions.jsonl")
         metrics, experiment = read_json(metrics_path), read_json(experiment_path)
         config = experiment["config"]
@@ -259,7 +252,7 @@ def main() -> None:
             classified = classify_record(record, task)
             counts.update(classified)
             aggregate[run["dataset"]].update(classified)
-            current_case = serializable_case(record, predictions_path, run["dataset"], run["model"], run["method"], "")
+            current_case = serializable_case(record, predictions_path, results_root, run["dataset"], run["model"], run["method"], "")
             score = score_record(record, task)
             candidates = dataset_candidates[run["dataset"]]
             if not record["valid"]:
@@ -283,8 +276,8 @@ def main() -> None:
                         "model_family": run["model"],
                         "row": record["row"],
                         "test_hash": record["test_hash"],
-                        "direct": serializable_case(direct_record, direct_path, run["dataset"], run["model"], "direct", "direct"),
-                        "cot": serializable_case(record, predictions_path, run["dataset"], run["model"], "cot", "cot"),
+                        "direct": serializable_case(direct_record, direct_path, results_root, run["dataset"], run["model"], "direct", "direct"),
+                        "cot": serializable_case(record, predictions_path, results_root, run["dataset"], run["model"], "cot", "cot"),
                         "absolute_per_record_score_delta": round(delta, 6),
                     }
                     candidates["contrast"] = choose_case(candidates.get("contrast"), delta, pair, True)
@@ -293,7 +286,7 @@ def main() -> None:
         registry.append({
             "dataset": run["dataset"], "model_family": run["model"], "model": MODEL_LABELS[run["model"]], "method": run["method"],
             "n_scored": run["n_scored"], "n_invalid": run["n_invalid"], "n_truncated": run["n_truncated"],
-            "valid_only_metrics": metrics["valid_only_metrics"]["metrics"], "prediction_file": str(predictions_path.relative_to(ROOT)),
+            "valid_only_metrics": metrics["valid_only_metrics"]["metrics"], "prediction_file": str(predictions_path.relative_to(results_root)),
             "experiment_id": metrics["experiment_id"], "cot_format": run["cot_format"],
         })
 
@@ -343,14 +336,14 @@ def main() -> None:
         "run_registry": registry,
         "aggregate_error_counts_by_dataset": {dataset: dict(aggregate[dataset]) for dataset in DATASETS},
         "published_score_comparison": published_comparison,
-        "scope_note": "Counts use only the 80 runs in summary.json. Strict checkpoint folders are excluded.",
+        "scope_note": "Counts use only the 80 runs in summary.json. Other result folders are not counted.",
         "interpretation_note": "Published scores are descriptive anchors from unmatched protocols; numerical differences are not causal or SOTA claims.",
     }
-    valid_metrics_path = ANALYSIS / "valid_only_metrics.json"
+    valid_metrics_path = analysis_root / "valid_only_metrics.json"
     valid_metrics_path.write_text(json.dumps(valid_metrics, ensure_ascii=False, indent=2), encoding="utf-8")
-    (ANALYSIS / "icl_v3_audit.json").write_text(json.dumps(audit, ensure_ascii=False, indent=2), encoding="utf-8")
-    (ANALYSIS / "icl_v3_case_review.json").write_text(json.dumps(cases, ensure_ascii=False, indent=2), encoding="utf-8")
-    with (ANALYSIS / "icl_v3_run_registry.csv").open("w", encoding="utf-8", newline="") as stream:
+    (analysis_root / "icl_v3_audit.json").write_text(json.dumps(audit, ensure_ascii=False, indent=2), encoding="utf-8")
+    (analysis_root / "icl_v3_case_review.json").write_text(json.dumps(cases, ensure_ascii=False, indent=2), encoding="utf-8")
+    with (analysis_root / "icl_v3_run_registry.csv").open("w", encoding="utf-8", newline="") as stream:
         fields = ["dataset", "model", "model_family", "method", "n_scored", "n_invalid", "n_truncated", "prediction_file", "experiment_id"]
         writer = csv.DictWriter(stream, fieldnames=fields)
         writer.writeheader()
@@ -360,7 +353,7 @@ def main() -> None:
         "bundle": "ICL-v3 audit for ACM Sections 6.2 and 7",
         "official_runs": len(registry),
         "total_predictions": audit["total_predictions"],
-        "score_source": str(valid_metrics_path.relative_to(ROOT)),
+        "score_source": str(valid_metrics_path.relative_to(analysis_root)),
         "score_source_sha256": hashlib.sha256(valid_metrics_path.read_bytes()).hexdigest(),
         "included_files": [
             "valid_only_metrics.json",
@@ -369,11 +362,11 @@ def main() -> None:
             "icl_v3_run_registry.csv",
             "table 10.tex",
         ],
-        "scope": "Only the 80 official summary.json runs; *-strict checkpoint folders are excluded.",
+        "scope": "Only the 80 official runs listed in summary.json.",
     }
-    (ANALYSIS / "bundle_manifest.json").write_text(json.dumps(manifest, ensure_ascii=False, indent=2), encoding="utf-8")
+    (analysis_root / "bundle_manifest.json").write_text(json.dumps(manifest, ensure_ascii=False, indent=2), encoding="utf-8")
     print(f"Audited {len(registry)} official runs and {audit['total_predictions']} predictions.")
-    print(f"Wrote {LATEX_TABLE.relative_to(ROOT)}, {ANALYSIS.relative_to(ROOT)} artifacts, and {len(cases)} review cases.")
+    print(f"Wrote {latex_table}, {analysis_root} artifacts, and {len(cases)} review cases.")
 
 
 if __name__ == "__main__":

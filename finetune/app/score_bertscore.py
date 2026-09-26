@@ -6,7 +6,7 @@ the trained model: no re-training, no re-generation. It loads its own multilingu
 embedding model, scores the saved pairs, and writes "bertscore_f1" into metrics.json.
 
 Run after training, before aggregate:
-    python -m app.score_bertscore --results-root /content/results
+    python -m app.score_bertscore --results-root /path/to/results
 Then re-run `python -m app.aggregate ...` so the column appears in the summary.
 """
 

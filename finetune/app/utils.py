@@ -8,6 +8,7 @@ import os
 import random
 import sys
 from dataclasses import asdict, is_dataclass
+from importlib.metadata import PackageNotFoundError, version
 from typing import Any
 
 import numpy as np
@@ -45,6 +46,17 @@ def set_seed(seed: int = 42) -> None:
             torch.cuda.manual_seed_all(seed)
     except Exception:  # torch may be unavailable in a pure-aggregation context
         pass
+
+
+def package_versions(names: tuple[str, ...]) -> dict[str, str]:
+    """Record installed package versions without requiring optional packages."""
+    result = {}
+    for name in names:
+        try:
+            result[name] = version(name)
+        except PackageNotFoundError:
+            result[name] = "not installed"
+    return result
 
 
 def ensure_dir(path: str) -> str:
