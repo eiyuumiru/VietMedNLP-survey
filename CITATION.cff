@@ -3,6 +3,7 @@ message: "If you use this software, please cite it as described in the accompany
 title: "Source code for Sections 6.1 and 6.2: Vietnamese Healthcare Text Processing"
 type: software
 version: 0.1.0
+repository-code: "https://github.com/eiyuumiru/VietMedNLP-survey"
 authors:
   - name: "Tran Phuoc Thanh Nhan"
   - name: "Huynh Nguyen Phu"

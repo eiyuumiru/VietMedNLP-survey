@@ -14,9 +14,8 @@ The two experiment pipelines have separate dependencies and data access:
 
 Both pipelines expect you to obtain authorized benchmark data and place it in
 the local layout described by each README. The repository contains no
-datasets, predictions, trained adapters, API credentials, or private Drive
-folder identifiers. Configure data access locally as described in each
-folder's README.
+datasets, predictions, trained adapters, or API credentials. Configure data
+access locally as described in each folder's README.
 
 ## Quick orientation
 
@@ -41,22 +40,7 @@ the relevant method folder so output paths stay with the corresponding
 pipeline. Generated results and local configuration are excluded by
 `.gitignore`.
 
-## Code availability statement for the paper
-
-After this repository has an approved public URL, the following wording can be
-adapted for the manuscript:
-
-> The source code for the Section 6.1 fine-tuning and Section 6.2 in-context
-> learning experiments is available at **[repository URL]**. Access to the
-> benchmark data is subject to the dataset providers' terms.
-
-The bracketed URL is documentation guidance only; no placeholder was added to
-the manuscript. This local repository has no `LICENSE` file pending confirmation
-of the authors' and organizations' rights to distribute the code. Add a license
-and publish the repository only after that review.
-
 ## Citation
 
-`CITATION.cff` records the article authors for repository citation metadata.
-Add the approved repository URL, version, and DOI there when those become
-available. No GitHub remote or release is configured in this local copy.
+If you use this code, cite the accompanying article and use the metadata in
+[`CITATION.cff`](CITATION.cff).

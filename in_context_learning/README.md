@@ -143,7 +143,6 @@ python -B -m unittest discover -s tests -p "test_*.py"
 Tests use mocked clients and temporary CSV fixtures. They do not call a model
 API, download datasets, or create repository predictions.
 
-## Code availability
+## Citation
 
-The source code and experiment instructions for Section 6.2 will be available
-at `<repository URL>` after the repository is published.
+For citation metadata, see [`../CITATION.cff`](../CITATION.cff).

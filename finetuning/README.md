@@ -8,8 +8,8 @@ dataset using the natural-language instruction and target columns.
 ## Environment and data
 
 Use a GPU environment supported by Unsloth and the installed CUDA/PyTorch stack;
-the original runs used Google Colab with an A100. Start from a clean GPU runtime
-and install this folder's dependencies:
+a CUDA-capable GPU environment is required. Start from a clean GPU runtime and
+install this folder's dependencies:
 
 ```bash
 python -m pip install -r requirements.txt
@@ -36,8 +36,8 @@ python -m app.validate_data --data-root "$DATA_ROOT"
 
 Validation can report known unusable data such as `ViMQ_NER`; the ten datasets
 reported in Section 6.1 do not include `ViMQ_NER` or `ViSP_Sentence_Paraphrases`.
-The CSV files remain outside this repository. The original experiments used a
-Colab A100 runtime; other compatible GPU environments can run the same recipe.
+The CSV files remain outside this repository. An NVIDIA A100 or another
+compatible GPU with sufficient memory can run the same recipe.
 
 ## Reproduce a reported run
 
