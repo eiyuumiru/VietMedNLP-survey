@@ -1,0 +1,12 @@
+cff-version: 1.2.0
+message: "If you use this software, please cite it as described in the accompanying paper."
+title: "Source code for Sections 6.1 and 6.2: Vietnamese Healthcare Text Processing"
+type: software
+version: 0.1.0
+authors:
+  - name: "Tran Phuoc Thanh Nhan"
+  - name: "Huynh Nguyen Phu"
+  - name: "Dinh Hoang Phong"
+  - name: "Duong Ngoc Hao"
+  - name: "Dang Van Thin"
+  - name: "Ngan Luu-Thuy Nguyen"

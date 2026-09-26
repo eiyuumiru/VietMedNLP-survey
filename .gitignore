@@ -1,0 +1,41 @@
+# Credentials and machine-local configuration
+.env
+.env.*
+!.env.example
+
+# Python environments, caches, and generated files
+.venv/
+venv/
+env/
+__pycache__/
+*.py[cod]
+.pytest_cache/
+.mypy_cache/
+.ruff_cache/
+.cache/
+.dataset-cache/
+.huggingface/
+*.log
+
+# Experiment outputs and private data
+**/results/
+**/outputs/
+**/analysis/
+**/runs/
+**/wandb/
+**/adapter/
+**/adapters/
+**/checkpoint-*/
+**/dataset.txt
+*.csv
+*.jsonl
+*.parquet
+*.arrow
+*.zip
+*.7z
+
+# Model checkpoints and weights
+*.safetensors
+*.pt
+*.pth
+*.bin
