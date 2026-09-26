@@ -11,7 +11,7 @@ sampling and scoring protocol.
 
 ## Install
 
-Use a Python environment separate from `finetune/`:
+Use a Python environment separate from `finetuning/`:
 
 ```bash
 python -m venv .venv

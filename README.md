@@ -7,7 +7,7 @@ Vietnamese Healthcare Text Processing*.
 
 The two experiment pipelines have separate dependencies and data access:
 
-- [`finetune/`](finetune/README.md) trains one Llama 3.1 8B LoRA adapter per
+- [`finetuning/`](finetuning/README.md) trains one Llama 3.1 8B LoRA adapter per
   dataset and evaluates on its test split.
 - [`in_context_learning/`](in_context_learning/README.md) runs direct few-shot
   and few-shot explanation-and-answer prompting with four model families.
@@ -23,7 +23,7 @@ folder's README.
 ```text
 source/
 ├── CITATION.cff
-├── finetune/
+├── finetuning/
 │   ├── README.md
 │   ├── requirements.txt
 │   └── app/

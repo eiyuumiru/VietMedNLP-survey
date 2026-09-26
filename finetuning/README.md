@@ -41,7 +41,7 @@ Colab A100 runtime; other compatible GPU environments can run the same recipe.
 
 ## Reproduce a reported run
 
-Run commands from `finetune/`. The selected Section 6.1 runs used bf16 LoRA,
+Run commands from `finetuning/`. The selected Section 6.1 runs used bf16 LoRA,
 seed 42, learning rate `2e-4`, training batch 16, gradient accumulation 1,
 LoRA rank 16 / alpha 32 / dropout 0.05, and validation on up to 1,000 `dev`
 examples. The `test` split is evaluated in full. `--no-4bit` is required to

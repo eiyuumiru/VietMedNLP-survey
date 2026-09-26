@@ -2,7 +2,7 @@
 #
 # Unsloth pulls a mutually-compatible torch / transformers / trl / peft / bitsandbytes /
 # accelerate / datasets stack, so we do NOT pin those ourselves (avoids version clashes).
-# From the finetune/ folder run:  pip install -r requirements.txt
+# From the finetuning/ folder run:  pip install -r requirements.txt
 #
 # If Unsloth's install tries to change Colab's torch and breaks, install it alone first:
 #   python -m pip install unsloth
