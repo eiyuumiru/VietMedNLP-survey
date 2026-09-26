@@ -1,11 +1,11 @@
-# Few-shot and CoT-instruction prompting
+# Answer-only and explanation-and-answer prompting
 
 ## What does the batch run?
 
 `python src/run_all.py` runs 4 models × 10 datasets × 2 methods = 80
 configurations. The methods are `direct` and `cot`; both draw demonstrations
-from the training split. The default batch contains no separate zero-shot or
-one-shot condition.
+from the training split. Both conditions use input--answer demonstrations
+without worked explanations.
 
 | Dataset | Shots | Expected answer |
 |---|---:|---|
@@ -54,7 +54,7 @@ USER       Current test input
 There are `2*k + 2` messages. The assistant messages in demonstrations contain
 training gold answers; they are not outputs from earlier API calls.
 
-## Direct few-shot prompting (`direct`)
+## Answer-only prompting (`direct`)
 
 The exact Vietnamese instructions used by the experiments are implemented in
 `src/icl_tasks.py`. For example, the ViMedNLI instruction means:
@@ -88,7 +88,7 @@ For NER, `answer` remains a string, for example:
 
 Examples in this document illustrate the format and are not inference results.
 
-## Few-shot prompting with an additional CoT instruction (`cot`)
+## Explanation-and-answer prompting (`cot`)
 
 The messages and demonstrations are identical to `direct`. The system prompt
 adds an instruction whose English meaning is:
@@ -115,11 +115,10 @@ Statement 2: The patient has a fever.
 }
 ```
 
-Training CSV files have no gold rationales. The runner does not invent
-rationales for demonstrations or ask an additional model to generate them. In
-the paper, call this method **few-shot prompting with an additional CoT
-instruction**. The explanation is model output, not access to internal
-reasoning, and it does not establish that the reasoning is correct or faithful.
+Both conditions use demonstrations containing gold answers without rationales.
+The `cot` option requests a brief explanation alongside the final answer.
+This explanation is model output and does not establish that the reasoning
+is correct or faithful.
 
 ## Scoring and format compliance
 
@@ -132,27 +131,28 @@ The evaluator scores only `answer`; it does not include `explanation` in
 F1 or ROUGE. It reports:
 
 - **Task metric:** answer compared with gold using Accuracy, F1, EM, or ROUGE-L.
-- **CoT format compliance:** whether a complete response has non-empty string
-  values for both `answer` and `explanation`.
+- **Explanation format compliance:** whether a complete response has non-empty
+  string values for both `answer` and `explanation`.
 
-`{"answer":"entailment"}` can be task-correct but is not CoT-compliant. A
-long explanation with a wrong answer is still incorrect. A truncated or filtered
-completion is recorded and scored as a wrong answer; an API error stops the run
-so it can resume later.
+`{"answer":"entailment"}` can be task-correct but is not explanation-format
+compliant. A long explanation with a wrong answer is still incorrect. A
+truncated or filtered completion is recorded and scored as a wrong answer; an
+API error stops the run so it can resume later.
 
 ## Comparison conditions
 
 All conditions use the same test split, shots, shot order, seed, evaluator, and
 8,192 completion-token cap per request. Within each model, decoding is the same
-for direct and CoT: GPT-4 uses temperature 0; GPT-5 uses reasoning effort
-`none` without a temperature parameter. This isolates the prompt condition.
+for answer-only and explanation-and-answer prompting: GPT-4 uses temperature
+0; GPT-5 uses reasoning effort `none` without a temperature parameter. This
+isolates the prompt condition.
 
 The runner rejects inputs above 60,000 characters or an estimated 32,000
 tokens; it never truncates them silently. Each method runs four models at once,
 with four workers per model. The methods run sequentially, so the maximum is 16
 concurrent requests.
 
-CoT can use more generated tokens despite the common cap. One seed does not
+Explanation-and-answer prompting can use more generated tokens despite the common cap. One seed does not
 measure variation from demonstrations, and the question-form and length groups
 do not ensure clinical-topic balance. A local metric is not equivalent to an
 original benchmark evaluator merely because the metrics share a name.

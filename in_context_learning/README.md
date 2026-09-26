@@ -2,8 +2,8 @@
 
 This folder contains the ICL-v3 experiment runner, task prompts and evaluator,
 results audit, and offline regression tests. The batch covers ten datasets,
-four model profiles, and two prompting conditions: `direct` and `cot` (a brief
-explanation plus a separate final answer). Each dataset uses the same sampled
+four model profiles, and two prompting conditions: answer-only (`direct`) and
+explanation-and-answer (`cot`). Each dataset uses the same sampled
 training demonstrations across model profiles and prompting conditions.
 
 [`PROMPTS.md`](PROMPTS.md) documents the task instructions, shot counts,
@@ -130,9 +130,7 @@ python src/audit_icl_v3.py \
 The audit requires 80 complete runs under the selected results folder. The
 defaults match the batch runner's default output and this folder's `analysis/`
 directory. It checks manifests, summary metrics, and prediction counts, then
-writes the LaTeX table and audit bundle to the analysis folder; it does not
-write to the manuscript directory. Review the generated table before copying
-it into the paper.
+writes the LaTeX score table and audit outputs to the analysis folder.
 
 Run offline tests from `in_context_learning/`:
 

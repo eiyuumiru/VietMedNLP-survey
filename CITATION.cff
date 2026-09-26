@@ -1,5 +1,5 @@
 cff-version: 1.2.0
-message: "If you use this software, please cite it as described in the accompanying paper."
+message: "If you use this software, please cite it using the metadata below."
 title: "Source code for Sections 6.1 and 6.2: Vietnamese Healthcare Text Processing"
 type: software
 version: 0.1.0

@@ -9,13 +9,14 @@ The two experiment pipelines have separate dependencies and data access:
 
 - [`finetuning/`](finetuning/README.md) trains one Llama 3.1 8B LoRA adapter per
   dataset and evaluates on its test split.
-- [`in_context_learning/`](in_context_learning/README.md) runs direct few-shot
-  and few-shot explanation-and-answer prompting with four model families.
+- [`in_context_learning/`](in_context_learning/README.md) runs answer-only
+  and explanation-and-answer prompting with four model profiles.
 
 Both pipelines expect you to obtain authorized benchmark data and place it in
 the local layout described by each README. The repository contains no
 datasets, predictions, trained adapters, or API credentials. Configure data
-access locally as described in each folder's README.
+access locally as described in each folder's README. Historical run manifests,
+bootstrap interval tables, and review records are not included.
 
 ## Quick orientation
 
@@ -42,7 +43,7 @@ pipeline. Generated results and local configuration are excluded by
 
 ## Citation
 
-If you use this code, cite the accompanying article and use the metadata in
+If you use this code, use the software citation metadata in
 [`CITATION.cff`](CITATION.cff).
 
 ## License
