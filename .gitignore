@@ -31,6 +31,9 @@ __pycache__/
 **/run_config.json
 **/summary.json
 *.csv
+!02_corpus_and_codebook/included_studies.csv
+!02_corpus_and_codebook/taxonomy_mapping.csv
+!02_corpus_and_codebook/benchmark_audit.csv
 *.jsonl
 *.parquet
 *.arrow
