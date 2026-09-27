@@ -7,9 +7,9 @@ Vietnamese Healthcare Text Processing*.
 
 The two experiment pipelines have separate dependencies and data access:
 
-- [`finetuning/`](finetuning/README.md) trains one Llama 3.1 8B LoRA adapter per
+- [`finetuning/`](03_reevaluation/src/finetuning/README.md) trains one Llama 3.1 8B LoRA adapter per
   dataset and evaluates on its test split.
-- [`in_context_learning/`](in_context_learning/README.md) runs answer-only
+- [`in_context_learning/`](03_reevaluation/src/in_context_learning/README.md) runs answer-only
   and explanation-and-answer prompting with four model profiles.
 
 Both pipelines expect you to obtain authorized benchmark data and place it in
@@ -21,19 +21,20 @@ bootstrap interval tables, and review records are not included.
 ## Quick orientation
 
 ```text
-source/
+VietMedNLP-survey/
+├── docs/
+├── 01_review_protocol/
+├── 02_corpus_and_codebook/
+├── 03_reevaluation/
+│   ├── configs/  manifests/  prompts/
+│   ├── src/
+│   │   ├── finetuning/
+│   │   └── in_context_learning/
+│   └── environment/  scripts/  tests/
+├── 04_results/
+├── 05_restricted_or_not_released/
 ├── CITATION.cff
-├── finetuning/
-│   ├── README.md
-│   ├── requirements.txt
-│   └── app/
-└── in_context_learning/
-    ├── README.md
-    ├── PROMPTS.md
-    ├── requirements.txt
-    ├── .env.example
-    ├── src/
-    └── tests/
+└── LICENSE
 ```
 
 Install each method's dependencies in its own environment. Run commands from

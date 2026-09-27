@@ -143,4 +143,4 @@ API, download datasets, or create repository predictions.
 
 ## Citation
 
-For citation metadata, see [`../CITATION.cff`](../CITATION.cff).
+For citation metadata, see [`../../../CITATION.cff`](../../../CITATION.cff).
