@@ -33,7 +33,7 @@ DISPLAY = {
     "ViNewsQA_Extractive_QA": ("UIT-ViNewsQA", "Extractive QA\\\\ EM/token F1", ("exact_match", "token_f1")),
     "UIT-ViCoV19QA_QA": ("UIT-ViCoV19QA", "Generative QA\\\\ ROUGE-L", ("rouge_l_f1",)),
     "ViMedAQA_Abstract_QA": ("ViMedAQA", "Abstractive QA\\\\ ROUGE-L", ("rouge_l_f1",)),
-    "vihealthbert_Summarization": ("ViHealthBERT-FAQ", "Summarization\\\\ ROUGE-L", ("rouge_l_f1",)),
+    "vihealthbert_Summarization": ("FAQSum", "Summarization\\\\ ROUGE-L", ("rouge_l_f1",)),
 }
 
 # Published figures already cited in the manuscript's benchmark tables. These

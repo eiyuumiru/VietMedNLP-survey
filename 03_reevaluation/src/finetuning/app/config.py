@@ -157,7 +157,7 @@ DATASETS: dict[str, DatasetSpec] = {
             paper_sota={"metric": "ROUGE-L", "value": 0.5989, "method": "VinaLlama-7B"},
         ),
         DatasetSpec(
-            "vihealthbert_Summarization", "ViHealthBERT-FAQ (Summarization)", "generation",
+            "vihealthbert_Summarization", "FAQSum (Summarization)", "generation",
             max_seq_len=2048, max_new_tokens=256,
             paper_sota={"metric": "ROUGE-L", "value": 0.4385, "method": "ViHealthBERT (word, MLM)"},
         ),
