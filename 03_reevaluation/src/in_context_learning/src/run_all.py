@@ -1,4 +1,4 @@
-"""Run the Section 6.2 model, dataset, and prompting-condition matrix."""
+"""Run the Section 6 (in-context learning branch) model, dataset, and prompting-condition matrix."""
 
 from __future__ import annotations
 
@@ -31,7 +31,7 @@ from icl_tasks import TASKS
 
 METHODS = BATCH_METHODS
 SEED = 42
-RESULTS = ROOT / "results" / f"all_models_{PROTOCOL}"
+RESULTS = ROOT / "results" / "icl"
 MAX_PROMPT_CHARS = 60000
 WORKERS_PER_MODEL = 4
 MAX_TOTAL_WORKERS = 16

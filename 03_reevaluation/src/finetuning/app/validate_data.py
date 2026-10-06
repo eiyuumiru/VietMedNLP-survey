@@ -1,6 +1,6 @@
 """Exhaustively validate every task CSV before training.
 
-For each of the 12 datasets x {train, dev, test} it checks:
+For each of the 11 datasets x {train, dev, test} it checks:
   - the file exists and has EXACTLY the 10 standard columns (no missing/extra),
   - row count,
   - the % of rows whose nl target is empty / "None" (a broken dataset like ViMQ_NER
@@ -9,11 +9,11 @@ For each of the 12 datasets x {train, dev, test} it checks:
   - for classification/NLI/MCQA: number of distinct labels + the most common ones,
   - a few sample (instruction, target) pairs so you can eyeball the format.
 
-Big files (e.g. ViSP ~881 MB) are streamed in chunks to limit memory use.
+Big files are streamed in chunks to limit memory use.
 
 Usage:
     python -m app.validate_data \
-        --data-root /path/to/Instruct_Datasets
+        --data-root /path/to/instruction-data
 
 Writes <data-root>/validation_report.json and prints a summary table. A FAIL means do
 not train on that file as-is; a WARN means inspect it (often a high empty/None rate).
@@ -132,7 +132,7 @@ def validate_file(data_root: str, split: str, stem: str, n_samples: int) -> dict
 def main(argv: list[str] | None = None) -> None:
     p = argparse.ArgumentParser(description="Validate the instruct datasets before training.")
     p.add_argument("--data-root", required=True,
-                   help="Instruct_Datasets[_EN] folder with train/ dev/ test/ subdirs.")
+                   help="folder with train/ dev/ test/ subdirs.")
     p.add_argument("--splits", default="train,dev,test")
     p.add_argument("--samples", type=int, default=3)
     p.add_argument("--out", default=None, help="Report JSON path (default: <data-root>/validation_report.json)")

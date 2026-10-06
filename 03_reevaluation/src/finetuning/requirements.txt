@@ -1,10 +1,10 @@
-# Dependencies for the reproducibility study (Colab L4 / A100), Unsloth-based training.
+# Dependencies for the reproducibility study Unsloth-based training on a CUDA GPU.
 #
 # Unsloth pulls a mutually-compatible torch / transformers / trl / peft / bitsandbytes /
 # accelerate / datasets stack, so we do NOT pin those ourselves (avoids version clashes).
 # From the finetuning/ folder run:  pip install -r requirements.txt
 #
-# If Unsloth's install tries to change Colab's torch and breaks, install it alone first:
+# If Unsloth's install tries to change the preinstalled torch and breaks, install it alone first:
 #   python -m pip install unsloth
 
 unsloth

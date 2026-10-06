@@ -1,4 +1,4 @@
-# Section 6.1 — dataset-specific fine-tuning
+# Section 6 (fine-tuning branch) — dataset-specific fine-tuning
 
 This folder contains the training, inference, evaluation, and aggregation code
 for the fine-tuning experiments. The runner uses
@@ -20,28 +20,29 @@ in this portable install file. Every completed run records the installed
 Unsloth, TRL, Transformers, PyTorch, PEFT, and Datasets versions in
 `metrics.json`.
 
-The data is not included. Obtain authorized copies of the HEALTHDOMAIN
-`Instruct_Datasets` files and place them in a local directory. It must
+The data is not included. Obtain authorized
+instruction-formatted copies of the ten benchmark datasets (one instruction prompt
+and one target response per row) and place them in a local directory. It must
 contain `train/`, `dev/`, and `test/` directories with the CSV files named by
 `python -m app.run --list-datasets`. The runner validates the expected columns
 and reads the `instruction_prompt_nl` / `output_prompt_nl` fields.
 [`DATA_FORMAT.md`](DATA_FORMAT.md) gives the exact folder layout and CSV schema.
 
-Set `DATA_ROOT` to the local `Instruct_Datasets` directory:
+Set `DATA_ROOT` to the local instruction-data directory:
 
 ```bash
-DATA_ROOT="/path/to/Instruct_Datasets"
+DATA_ROOT="/path/to/instruction-data"
 python -m app.validate_data --data-root "$DATA_ROOT"
 ```
 
 Validation can report known unusable data such as `ViMQ_NER`; the ten datasets
-reported in Section 6.1 do not include `ViMQ_NER` or `ViSP_Sentence_Paraphrases`.
+reported in Section 6 do not include `ViMQ_NER`.
 The CSV files remain outside this repository. An NVIDIA A100 or another
 compatible GPU with sufficient memory can run the same recipe.
 
 ## Reproduce a reported run
 
-Run commands from `finetuning/`. The selected Section 6.1 runs used bf16 LoRA,
+Run commands from `finetuning/`. The selected Section 6 runs used bf16 LoRA,
 seed 42, learning rate `2e-4`, training batch 16, gradient accumulation 1,
 LoRA rank 16 / alpha 32 / dropout 0.05, and validation on up to 1,000 `dev`
 examples. The `test` split is evaluated in full. `--no-4bit` is required to
@@ -62,7 +63,7 @@ python -m app.run \
 
 Use `--epochs 2` for `ViMedAQA_Abstract_QA`; the other reported runs use three
 epochs. `python -m app.run --list-datasets` lists every dataset in the code's
-registry, including datasets outside the Section 6.1 result table.
+registry, including datasets outside the fine-tuning results table in Section 6.
 
 The split roles are `train` for fitting, `dev` for best-checkpoint selection by
 validation loss, and `test` for final evaluation. The runner writes each run to
@@ -73,7 +74,7 @@ precision, accepted TRL settings, and package versions from the actual runtime.
 
 ## Post-process and summarize
 
-Section 6.1 reports BERTScore for three generation tasks. Compute it from the
+Section 6 reports BERTScore for three generation tasks. Compute it from the
 saved predictions after those runs finish, then regenerate the combined tables:
 
 ```bash

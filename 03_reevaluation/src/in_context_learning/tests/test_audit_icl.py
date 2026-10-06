@@ -1,4 +1,4 @@
-"""Focused regression tests for ICL-v3 audit classifications."""
+"""Focused regression tests for ICL audit classifications."""
 
 import unittest
 import sys
@@ -6,7 +6,7 @@ from pathlib import Path
 
 sys.path.insert(0, str(Path(__file__).resolve().parents[1] / "src"))
 
-from audit_icl_v3 import classify_record, score_record
+from audit_icl import classify_record, score_record
 from icl_tasks import TASKS
 
 

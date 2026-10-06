@@ -14,7 +14,7 @@ from dataclasses import dataclass
 # --------------------------------------------------------------------------------------
 
 # Unsloth-optimized Llama-3.1-8B-Instruct (usually ungated). load_in_4bit=True auto-uses
-# the matching 4-bit build; load_in_4bit=False loads it in 16-bit for bf16 LoRA (A100).
+# the matching 4-bit build; load_in_4bit=False loads it in 16-bit for bf16 LoRA.
 # The original gated weights "meta-llama/Llama-3.1-8B-Instruct" also work (needs HF_TOKEN).
 DEFAULT_MODEL = "unsloth/Meta-Llama-3.1-8B-Instruct"
 
@@ -95,7 +95,7 @@ class DatasetSpec:
 
 
 # --------------------------------------------------------------------------------------
-# Dataset registry — the 12 task CSVs in New_Data/Instruct_Datasets/{train,dev,test}/
+# Dataset registry — the 11 task CSVs in <data-root>/{train,dev,test}/ (see DATA_FORMAT.md)
 # `paper_sota` values are stored as fractions in [0, 1]; "method" names the SOTA system
 # from the survey tables (often a different paradigm than our fine-tuned Llama).
 # --------------------------------------------------------------------------------------
@@ -161,11 +161,6 @@ DATASETS: dict[str, DatasetSpec] = {
             max_seq_len=2048, max_new_tokens=256,
             paper_sota={"metric": "ROUGE-L", "value": 0.4385, "method": "ViHealthBERT (word, MLM)"},
         ),
-        DatasetSpec(
-            "ViSP_Sentence_Paraphrases", "ViSP (Paraphrase)", "generation",
-            max_seq_len=1024, max_new_tokens=128,
-            paper_sota={"metric": "ROUGE-2", "value": 0.7578, "method": "BARTpho-word-large"},
-        ),
     ]
 }
 
@@ -212,7 +207,7 @@ class RunConfig:
     max_eval_samples: int | None = None
     # Use the dev split during training for eval_loss + best-checkpoint selection.
     eval_during_train: bool = True
-    max_val_samples: int | None = 1000  # cap dev (e.g. ViSP dev has ~391k rows)
+    max_val_samples: int | None = 1000  # cap dev-set size used for validation loss
 
     # quantization / LoRA. These defaults match the CLI defaults.
     use_4bit: bool = True

@@ -1,6 +1,6 @@
-# Section 6.2 — in-context learning
+# Section 6 (in-context learning branch)
 
-This folder contains the ICL-v3 experiment runner, task prompts and evaluator,
+This folder contains the ICL experiment runner, task prompts and evaluator,
 results audit, and offline regression tests. The batch covers ten datasets,
 four model profiles, and two prompting conditions: answer-only (`direct`) and
 explanation-and-answer (`cot`). Each dataset uses the same sampled
@@ -64,7 +64,7 @@ provider; for Azure OpenAI, use the deployment name.
 | GPT-5.2 | `ICL_MODEL_GPT_5_2` |
 | GPT-5.4 | `ICL_MODEL_GPT_5_4` |
 
-## Run the Section 6.2 batch
+## Run the in-context learning batch
 
 From `in_context_learning/`, run:
 
@@ -78,7 +78,7 @@ four request workers per model profile and caps total concurrency at 16. The
 two prompting conditions run sequentially. API charges may apply. Rerunning
 the command resumes compatible checkpoints and skips completed runs.
 
-By default, outputs go to `results/all_models_icl-v3/` in this folder. Choose a
+By default, outputs go to `results/icl/` in this folder. Choose a
 different directory or a smoke-run subset with:
 
 ```bash
@@ -119,10 +119,10 @@ a model identifier (or configured model profile).
 
 ## Audit and tests
 
-After a complete batch, create the Section 6.2 score table and ICL-v3 audit:
+After a complete batch, create the in-context learning score table and audit:
 
 ```bash
-python src/audit_icl_v3.py \
+python src/audit_icl.py \
   --results-root /path/to/experiment-output \
   --analysis-root /path/to/analysis-output
 ```

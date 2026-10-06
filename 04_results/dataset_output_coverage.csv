@@ -1,0 +1,11 @@
+dataset,n_test_rows,n_configurations,n_predictions,n_invalid,invalid_rate_percent,format_compliance_min_percent,format_compliance_max_percent
+ViMQ_intent_classification,1000,8,8000,6,0.075,73.2,93.7
+ViMedNLI_ViMedNLI,1422,8,11376,0,0.0,81.58,99.79
+VMHQA_Multiple_Choice_QA,1007,8,8056,4,0.05,1.99,96.13
+PhoNER_COVID19_NER,3000,8,24000,0,0.0,0.1,99.63
+ViMedNER_NER,1525,8,12200,0,0.0,0.59,100.0
+vihealthbert_acrDrAid,1130,8,9040,0,0.0,1.95,61.59
+ViNewsQA_Extractive_QA,7968,8,63744,77,0.121,0.14,98.88
+UIT-ViCoV19QA_QA,819,8,6552,0,0.0,39.07,96.7
+ViMedAQA_Abstract_QA,2217,8,17736,3,0.017,0.36,99.1
+vihealthbert_Summarization,1330,8,10640,0,0.0,17.59,100.0

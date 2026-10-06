@@ -27,9 +27,9 @@ from icl_tasks import (
     parse_answer,
 )
 from icl_config import (
+    BATCH_METHODS,
     MODEL_PROFILES,
     MODELS,
-    SINGLE_RUN_METHODS,
     api_settings,
     dataset_files,
     model_id_for_family,
@@ -323,7 +323,7 @@ def parse_args():
     )
     parser.add_argument(
         "--method",
-        choices=SINGLE_RUN_METHODS,
+        choices=BATCH_METHODS,
         default="direct",
     )
     parser.add_argument("--seed", type=int, default=42)
@@ -362,11 +362,6 @@ def parse_args():
         parser.error(
             "shots, limit and max-prompt-chars must be positive; zero-shot is disabled"
         )
-    if args.method == "reasoned" and TASKS[args.dataset][0] not in {
-        "nli",
-        "mcqa",
-    }:
-        parser.error("reasoned is supported only for ViMedNLI and VMHQA")
     return args
 
 

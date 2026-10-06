@@ -1,6 +1,6 @@
 cff-version: 1.2.0
 message: "If you use this software, please cite it using the metadata below."
-title: "Source code for Sections 6.1 and 6.2: Vietnamese Healthcare Text Processing"
+title: "Source code and aggregate results for Sections 6 and 7: Vietnamese Healthcare Text Processing"
 type: software
 version: 0.1.0
 license: MIT

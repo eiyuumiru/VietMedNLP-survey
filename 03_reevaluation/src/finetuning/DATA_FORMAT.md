@@ -1,13 +1,14 @@
 # Fine-tuning data format
 
-The Section 6.1 runner consumes the authorized HEALTHDOMAIN
-`Instruct_Datasets` release. It does not download datasets or construct this
-release from raw benchmark files.
+The fine-tuning branch (Section 6) consumes authorized
+instruction-formatted copies of the ten benchmark datasets (one instruction
+prompt and one target response per row). It does not download datasets or
+construct these copies from raw benchmark files.
 
 Set `--data-root` to a directory with this layout:
 
 ```text
-Instruct_Datasets/
+instruction-data/
 ├── train/<dataset>.csv
 ├── dev/<dataset>.csv
 └── test/<dataset>.csv
@@ -31,14 +32,14 @@ task, dataset
 
 The training and evaluation runner uses only `instruction_prompt_nl` as the
 user message and `output_prompt_nl` as the target. The other columns are kept
-because they belong to the validated HEALTHDOMAIN release. Values must be
+because they are part of the instruction-formatted copies. Values must be
 non-empty strings after trimming; `None` remains a valid literal target for
 NER examples.
 
 Run this check before training:
 
 ```bash
-python -m app.validate_data --data-root /path/to/Instruct_Datasets
+python -m app.validate_data --data-root /path/to/instruction-data
 ```
 
 Keep all CSV files outside the source repository. The data provider's access

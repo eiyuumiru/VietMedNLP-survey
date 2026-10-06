@@ -1,10 +1,10 @@
 """CLI entry point: fine-tune + evaluate the model on ONE dataset.
 
-Typical Colab usage (run once per dataset):
+Typical usage (run once per dataset):
 
     python -m app.run \
         --dataset ViMedNLI_ViMedNLI \
-        --data-root /path/to/Instruct_Datasets \
+        --data-root /path/to/instruction-data \
         --output-root /path/to/results
 
 Outputs under <output-root>/<dataset>/:
@@ -29,7 +29,7 @@ def build_parser() -> argparse.ArgumentParser:
     p.add_argument("--dataset", help="Dataset file stem, e.g. ViMedNLI_ViMedNLI. "
                                      "Use --list-datasets to see all.")
     p.add_argument("--data-root", help="Folder containing train/ dev/ test/ subdirs "
-                                       "(the Instruct_Datasets[_EN] folder).")
+                                       "(instruction-formatted data; see DATA_FORMAT.md).")
     p.add_argument("--output-root", default="results", help="Where to write outputs.")
     p.add_argument("--model-name", default=DEFAULT_MODEL)
     p.add_argument("--list-datasets", action="store_true", help="Print dataset stems and exit.")
@@ -47,7 +47,7 @@ def build_parser() -> argparse.ArgumentParser:
                    help="Disable dev-based eval_loss + best-checkpoint selection.")
 
     # quantization / LoRA
-    p.add_argument("--no-4bit", action="store_true", help="Disable QLoRA (bf16 LoRA; A100 only).")
+    p.add_argument("--no-4bit", action="store_true", help="Disable 4-bit loading (bf16 LoRA, as in the reported runs).")
     p.add_argument("--lora-r", type=int, default=16)
     p.add_argument("--lora-alpha", type=int, default=32)
     p.add_argument("--lora-dropout", type=float, default=0.05)
@@ -60,7 +60,7 @@ def build_parser() -> argparse.ArgumentParser:
     p.add_argument("--grad-accum", type=int, default=2)
     p.add_argument("--eval-batch-size", type=int, default=8)
     p.add_argument("--no-auto-batch", action="store_true",
-                   help="Don't shrink batch for seq-2048 tasks (use on big GPUs, e.g. A100 80GB).")
+                   help="Don't shrink batch for seq-2048 tasks (use on big GPUs, e.g. 80GB).")
     p.add_argument("--warmup-ratio", type=float, default=0.03)
     p.add_argument("--weight-decay", type=float, default=0.0)
     p.add_argument("--lr-scheduler", default="cosine")

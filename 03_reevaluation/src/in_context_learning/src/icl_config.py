@@ -43,7 +43,6 @@ MODEL_PROFILES = {
 MODELS = tuple(MODEL_PROFILES)
 MODEL_LABELS = {key: profile.label for key, profile in MODEL_PROFILES.items()}
 BATCH_METHODS = ("direct", "cot")
-SINGLE_RUN_METHODS = ("direct", "review", "reasoned", "cot")
 
 
 def load_project_env(root: Path) -> None:

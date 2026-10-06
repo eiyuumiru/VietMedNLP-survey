@@ -1,10 +1,10 @@
-"""Model + tokenizer loading via Unsloth (FastLanguageModel) with LoRA / QLoRA.
+"""Model + tokenizer loading via Unsloth (FastLanguageModel) with LoRA (bf16) or optional 4-bit QLoRA loading.
 
 Unsloth MUST be imported before transformers/trl/peft so its kernels patch correctly;
 we therefore import it at module top (this module is the first to touch the HF stack).
 
-- use_4bit=True  -> QLoRA (4-bit), fits L4.
-- use_4bit=False -> LoRA in bf16, recommended on A100.
+- use_4bit=True  -> QLoRA (4-bit), fits smaller GPUs.
+- use_4bit=False -> LoRA in bf16 (as in the reported runs).
 """
 
 from __future__ import annotations
@@ -14,7 +14,7 @@ from unsloth import FastLanguageModel, is_bfloat16_supported  # noqa: E402,F401
 
 import torch as _torch
 
-# TF32 matmuls: large speedup on Ampere/A100 with negligible quality impact.
+# TF32 matmuls: large speedup on Ampere-class GPUs with negligible quality impact.
 try:
     _torch.backends.cuda.matmul.allow_tf32 = True
     _torch.backends.cudnn.allow_tf32 = True
@@ -50,7 +50,7 @@ def build_model(cfg: RunConfig, max_seq_length: int):
         model_name=cfg.model_name,
         max_seq_length=max_seq_length,
         dtype=_torch.bfloat16 if use_bf16(cfg) else _torch.float16,
-        load_in_4bit=cfg.use_4bit,  # False -> bf16 LoRA (A100)
+        load_in_4bit=cfg.use_4bit,  # False -> bf16 LoRA
     )
     tokenizer = _apply_chat_template(tokenizer)
 

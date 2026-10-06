@@ -1,4 +1,4 @@
-"""Unsloth LoRA/QLoRA supervised fine-tuning of one Llama model on one dataset.
+"""Unsloth LoRA supervised fine-tuning of one Llama model on one dataset.
 
 Pipeline: Unsloth FastLanguageModel -> TRL SFTTrainer (text field) -> train_on_responses_only
 (loss on the assistant response only). The dev split, if present, drives eval_loss + best

@@ -39,7 +39,7 @@ def read_split_df(data_root: str, split: str, stem: str) -> pd.DataFrame:
         raise FileNotFoundError(
             f"Could not find split file: {path}\n"
             f"Expected layout: <data_root>/{split}/{stem}.csv. "
-            f"Point --data-root at the 'Instruct_Datasets' (or 'Instruct_Datasets_EN') folder."
+            f"Point --data-root at the folder containing train/, dev/ and test/."
         )
     # keep_default_na=False so the literal string "None" is NOT turned into NaN: for NER
     # tasks "None" is a valid target meaning "no entities" (a useful negative example).
